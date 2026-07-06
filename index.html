@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Divisione Spesa Cena</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --border: #2a2e38;
+    --text: #e8e9ed;
+    --muted: #8b8f9a;
+    --accent: #4f7cff;
+    --green: #3ecf8e;
+    --red: #ff5c5c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+  }
+  .container { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1rem; margin: 0 0 12px 0; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  input, select, button {
+    font-family: inherit;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    background: #1e222b;
+    color: var(--text);
+  }
+  input, select { width: 100%; margin-bottom: 8px; }
+  button {
+    background: var(--accent);
+    border: none;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+  }
+  button:active { opacity: 0.8; }
+  button.secondary { background: #2a2e38; }
+  button.danger { background: transparent; color: var(--red); border: 1px solid var(--red); width: auto; padding: 6px 10px; font-size: 0.8rem; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { margin-bottom: 0; }
+  .spesa-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+  .spesa-row:last-child { border-bottom: none; }
+  .spesa-info { flex: 1; min-width: 0; }
+  .spesa-desc { font-weight: 500; }
+  .spesa-meta { font-size: 0.75rem; color: var(--muted); }
+  .spesa-importo { font-weight: 600; white-space: nowrap; }
+  .totale { font-size: 1.4rem; font-weight: 700; text-align: center; margin: 8px 0; }
+  .saldo-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .saldo-row:last-child { border-bottom: none; }
+  .saldo-positivo { color: var(--green); }
+  .saldo-negativo { color: var(--red); }
+  .transazione { padding: 10px; background: #1e222b; border-radius: 8px; margin-bottom: 8px; font-size: 0.95rem; }
+  .empty { color: var(--muted); text-align: center; padding: 20px 0; font-size: 0.9rem; }
+  .share-box {
+    display: flex; gap: 8px; align-items: center;
+    background: #1e222b; border-radius: 8px; padding: 8px;
+  }
+  .share-box input { margin: 0; font-size: 0.8rem; background: transparent; border: none; }
+  .share-box button { width: auto; padding: 8px 12px; font-size: 0.8rem; }
+  #setup-screen { display: none; }
+  #app-screen { display: none; }
+  .loading { text-align: center; padding: 40px 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🍽️ Divisione Spesa Cena</h1>
+  <div class="subtitle">Configura Supabase per iniziare a usare l'app</div>
+
+  <!-- SCHERMATA SETUP: da compilare una sola volta con le proprie credenziali Supabase -->
+  <div id="setup-screen">
+    <div class="card">
+      <h2>Configurazione Supabase</h2>
+      <input id="cfg-url" placeholder="Supabase Project URL">
+      <input id="cfg-key" placeholder="Supabase anon public key">
+      <button onclick="saveConfig()">Salva e continua</button>
+    </div>
+  </div>
+
+  <div id="app-screen">
+    <div id="loading" class="loading">Caricamento...</div>
+
+    <div id="no-cena" style="display:none;">
+      <div class="card">
+        <h2>Nuova Cena</h2>
+        <input id="nome-cena" placeholder="Nome della cena (es. Cena di Marco)">
+        <button onclick="creaCena()">Crea Cena</button>
+      </div>
+    </div>
+
+    <div id="cena-content" style="display:none;">
+      <div class="card">
+        <h2>Condividi</h2>
+        <div class="share-box">
+          <input id="share-link" readonly>
+          <button onclick="copyLink()">Copia link</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Partecipanti</h2>
+        <div class="row">
+          <input id="nuovo-partecipante" placeholder="Nome (es. Famiglia Rossi)" style="flex:1">
+          <input id="nuovo-num-persone" type="number" min="1" value="1" style="width:70px" title="Numero di persone">
+          <button style="width:auto" onclick="aggiungiPartecipante()">+ Aggiungi</button>
+        </div>
+        <div class="spesa-meta" style="margin-bottom:8px">Il numero indica quante persone conta ai fini della quota (1 = singolo, 4 = famiglia di 4)</div>
+        <div id="lista-partecipanti"></div>
+      </div>
+
+      <div class="card">
+        <h2>Aggiungi Spesa</h2>
+        <select id="sel-partecipante"></select>
+        <input id="sel-descrizione" placeholder="Descrizione (es. Vino, Antipasti)">
+        <input id="sel-importo" type="number" step="0.01" placeholder="Importo (€)">
+        <div class="row" style="margin-bottom:8px">
+          <input id="sel-foto" type="file" accept="image/*" capture="environment" style="flex:1; padding:8px; font-size:0.85rem">
+        </div>
+        <div id="foto-preview" style="display:none; margin-bottom:8px">
+          <img id="foto-preview-img" style="max-width:100%; border-radius:8px; border:1px solid var(--border)">
+        </div>
+        <input id="sel-chi-sono" placeholder="Il tuo nome (per tracciare chi modifica)">
+        <button id="btn-aggiungi-spesa" onclick="aggiungiSpesa()">Aggiungi Spesa</button>
+      </div>
+
+      <div class="card">
+        <h2>Spese Inserite</h2>
+        <div id="lista-spese"><div class="empty">Nessuna spesa ancora</div></div>
+        <div class="totale" id="totale-spesa"></div>
+      </div>
+
+      <div class="card">
+        <h2>Riepilogo Saldi</h2>
+        <div id="lista-saldi"></div>
+      </div>
+
+      <div class="card">
+        <h2>Chi Deve Dare a Chi</h2>
+        <div id="lista-transazioni"><div class="empty">Nessuna transazione necessaria</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ============================================================
+// CONFIGURAZIONE
+// Sostituisci con le tue credenziali Supabase (Project Settings > API)
+// oppure lascia vuoto per mostrare la schermata di setup al primo avvio.
+// ============================================================
+const HARDCODED_URL = "https://xhbmrxajmhdqvohagqvi.supabase.co";
+const HARDCODED_KEY = "sb_publishable_y2BwF8yqUycxxB2B4GsyuA_pTPpwwYs";
+
+let supabaseClient = null;
+let currentCenaId = null;
+let partecipanti = [];
+let spese = [];
+let realtimeChannel = null;
+
+function getConfig() {
+  const url = HARDCODED_URL || localStorage.getItem('sb_url');
+  const key = HARDCODED_KEY || localStorage.getItem('sb_key');
+  return { url, key };
+}
+
+function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  if (!url || !key) { alert('Inserisci URL e chiave'); return; }
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+  init();
+}
+
+function init() {
+  const { url, key } = getConfig();
+  if (!url || !key) {
+    document.getElementById('setup-screen').style.display = 'block';
+    document.getElementById('app-screen').style.display = 'none';
+    return;
+  }
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+
+  supabaseClient = window.supabase.createClient(url, key);
+
+  const params = new URLSearchParams(window.location.search);
+  currentCenaId = params.get('cena');
+
+  if (currentCenaId) {
+    loadCena(currentCenaId);
+  } else {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('no-cena').style.display = 'block';
+  }
+}
+
+async function creaCena() {
+  const nome = document.getElementById('nome-cena').value.trim();
+  if (!nome) { alert('Inserisci un nome per la cena'); return; }
+  const { data, error } = await supabaseClient.from('cene').insert({ nome }).select().single();
+  if (error) { alert('Errore: ' + error.message); return; }
+  const url = new URL(window.location.href);
+  url.searchParams.set('cena', data.id);
+  window.location.href = url.toString();
+}
+
+async function loadCena(cenaId) {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('cena-content').style.display = 'none';
+
+  const shareUrl = new URL(window.location.href);
+  shareUrl.searchParams.set('cena', cenaId);
+  document.getElementById('share-link').value = shareUrl.toString();
+
+  await refreshData();
+  setupRealtime(cenaId);
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('cena-content').style.display = 'block';
+}
+
+async function refreshData() {
+  const { data: p } = await supabaseClient.from('partecipanti').select('*').eq('cena_id', currentCenaId).order('created_at');
+  partecipanti = p || [];
+
+  const { data: s } = await supabaseClient.from('spese').select('*').eq('cena_id', currentCenaId).order('created_at');
+  spese = s || [];
+
+  render();
+}
+
+function setupRealtime(cenaId) {
+  if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+  realtimeChannel = supabaseClient
+    .channel('cena-' + cenaId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'partecipanti', filter: 'cena_id=eq.' + cenaId }, refreshData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'spese', filter: 'cena_id=eq.' + cenaId }, refreshData)
+    .subscribe();
+}
+
+async function aggiungiPartecipante() {
+  const input = document.getElementById('nuovo-partecipante');
+  const inputNumPersone = document.getElementById('nuovo-num-persone');
+  const nome = input.value.trim();
+  const numPersone = parseInt(inputNumPersone.value, 10) || 1;
+  if (!nome) return;
+  if (numPersone < 1) { alert('Il numero di persone deve essere almeno 1'); return; }
+  const { error } = await supabaseClient.from('partecipanti').insert({ cena_id: currentCenaId, nome, num_persone: numPersone });
+  if (error) { alert('Errore: forse questo nome esiste già'); return; }
+  input.value = '';
+  inputNumPersone.value = '1';
+  await refreshData();
+}
+
+async function modificaNumPersone(id, attuale) {
+  const nuovoStr = prompt('Numero di persone in questo gruppo/famiglia:', attuale);
+  if (nuovoStr === null) return;
+  const nuovo = parseInt(nuovoStr, 10);
+  if (isNaN(nuovo) || nuovo < 1) { alert('Valore non valido'); return; }
+  if (nuovo !== attuale) {
+    const conferma = confirm(`Stai cambiando da ${attuale} a ${nuovo} persone. Questo ricalcola retroattivamente tutti i saldi già mostrati. Continuare?`);
+    if (!conferma) return;
+  }
+  await supabaseClient.from('partecipanti').update({ num_persone: nuovo }).eq('id', id);
+  await refreshData();
+}
+
+async function rimuoviPartecipante(id) {
+  if (!confirm('Rimuovere questo partecipante? Le sue spese verranno eliminate.')) return;
+  await supabaseClient.from('partecipanti').delete().eq('id', id);
+  await refreshData();
+}
+
+async function aggiungiSpesa() {
+  const partecipanteId = document.getElementById('sel-partecipante').value;
+  const descrizione = document.getElementById('sel-descrizione').value.trim();
+  const importo = parseFloat(document.getElementById('sel-importo').value);
+  const chiSono = document.getElementById('sel-chi-sono').value.trim() || 'anonimo';
+  const fotoInput = document.getElementById('sel-foto');
+  const fotoFile = fotoInput.files[0];
+
+  if (!partecipanteId) { alert('Seleziona un partecipante'); return; }
+  if (isNaN(importo) || importo < 0) { alert('Inserisci un importo valido'); return; }
+
+  const btn = document.getElementById('btn-aggiungi-spesa');
+  const testoOriginale = btn ? btn.textContent : null;
+
+  // La spesa si salva subito con l'importo: la foto non deve mai bloccare questo passaggio.
+  let fotoUrl = null;
+  if (fotoFile) {
+    if (btn) btn.textContent = 'Caricamento foto...';
+    fotoUrl = await caricaScontrino(fotoFile, currentCenaId);
+    if (!fotoUrl) {
+      const continua = confirm('Caricamento della foto fallito (rete lenta?). Salvare comunque la spesa senza foto?');
+      if (!continua) { if (btn) btn.textContent = testoOriginale; return; }
+    }
+  }
+
+  const { error } = await supabaseClient.from('spese').insert({
+    cena_id: currentCenaId,
+    partecipante_id: partecipanteId,
+    descrizione: descrizione || '(senza descrizione)',
+    importo,
+    foto_url: fotoUrl,
+    updated_by: chiSono
+  });
+  if (btn) btn.textContent = testoOriginale;
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  document.getElementById('sel-descrizione').value = '';
+  document.getElementById('sel-importo').value = '';
+  fotoInput.value = '';
+  document.getElementById('foto-preview').style.display = 'none';
+  await refreshData();
+}
+
+async function modificaSpesa(id, importoAttuale, descrizioneAttuale) {
+  const chiSono = document.getElementById('sel-chi-sono').value.trim() || 'anonimo';
+  const nuovaDesc = prompt('Descrizione:', descrizioneAttuale);
+  if (nuovaDesc === null) return;
+  const nuovoImportoStr = prompt('Importo (€):', importoAttuale);
+  if (nuovoImportoStr === null) return;
+  const nuovoImporto = parseFloat(nuovoImportoStr);
+  if (isNaN(nuovoImporto) || nuovoImporto < 0) { alert('Importo non valido'); return; }
+
+  await supabaseClient.from('spese').update({
+    descrizione: nuovaDesc || '(senza descrizione)',
+    importo: nuovoImporto,
+    updated_by: chiSono
+  }).eq('id', id);
+  await refreshData();
+}
+
+async function eliminaSpesa(id) {
+  if (!confirm('Eliminare questa spesa?')) return;
+  await supabaseClient.from('spese').delete().eq('id', id);
+  await refreshData();
+}
+
+// ============================================================
+// GESTIONE FOTO SCONTRINO
+// ============================================================
+document.getElementById('sel-foto').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) {
+    document.getElementById('foto-preview').style.display = 'none';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    document.getElementById('foto-preview-img').src = ev.target.result;
+    document.getElementById('foto-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+});
+
+// Comprime l'immagine lato client (max 1280px lato lungo, JPEG qualità 0.7)
+// per evitare upload di 5-10MB da fotocamere moderne su reti lente al ristorante.
+function comprimiImmagine(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const maxLato = 1280;
+      let { width, height } = img;
+      if (width > height && width > maxLato) {
+        height = Math.round(height * (maxLato / width));
+        width = maxLato;
+      } else if (height > maxLato) {
+        width = Math.round(width * (maxLato / height));
+        height = maxLato;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.7);
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Upload tollerante: se fallisce, non blocca il salvataggio della spesa.
+// Ritorna null in caso di errore, così la spesa resta valida senza foto.
+async function caricaScontrino(file, cenaId) {
+  try {
+    const blob = await comprimiImmagine(file);
+    const nomeFile = `${cenaId}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    const { error } = await supabaseClient.storage.from('cena-split').upload(nomeFile, blob, {
+      contentType: 'image/jpeg',
+      upsert: false
+    });
+    if (error) { console.error('Upload fallito:', error); return null; }
+    const { data } = supabaseClient.storage.from('cena-split').getPublicUrl(nomeFile);
+    return data.publicUrl;
+  } catch (err) {
+    console.error('Errore compressione/upload:', err);
+    return null;
+  }
+}
+
+function apriFotoScontrino(url) {
+  window.open(url, '_blank');
+}
+
+function copyLink() {
+  const input = document.getElementById('share-link');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => alert('Link copiato!'));
+}
+
+// ============================================================
+// CALCOLO SALDI E SETTLE-UP
+// ============================================================
+function calcolaSaldi() {
+  const totale = spese.reduce((sum, s) => sum + Number(s.importo), 0);
+  const totalePersone = partecipanti.reduce((sum, p) => sum + (p.num_persone || 1), 0);
+  if (totalePersone === 0) return { totale: 0, quota: 0, saldi: [] };
+  const quotaUnitaria = totale / totalePersone; // quota "a testa"
+
+  const saldi = partecipanti.map(p => {
+    const pagato = spese
+      .filter(s => s.partecipante_id === p.id)
+      .reduce((sum, s) => sum + Number(s.importo), 0);
+    const quotaDovuta = quotaUnitaria * (p.num_persone || 1);
+    return { nome: p.nome, numPersone: p.num_persone || 1, pagato, quotaDovuta, saldo: pagato - quotaDovuta };
+  });
+
+  return { totale, quota: quotaUnitaria, saldi };
+}
+
+// Algoritmo greedy per minimizzare il numero di transazioni
+function calcolaTransazioni(saldi) {
+  const debitori = saldi.filter(s => s.saldo < -0.01).map(s => ({ nome: s.nome, importo: -s.saldo }));
+  const creditori = saldi.filter(s => s.saldo > 0.01).map(s => ({ nome: s.nome, importo: s.saldo }));
+
+  const transazioni = [];
+  let i = 0, j = 0;
+  while (i < debitori.length && j < creditori.length) {
+    const d = debitori[i];
+    const c = creditori[j];
+    const importo = Math.min(d.importo, c.importo);
+    transazioni.push({ da: d.nome, a: c.nome, importo });
+    d.importo -= importo;
+    c.importo -= importo;
+    if (d.importo < 0.01) i++;
+    if (c.importo < 0.01) j++;
+  }
+  return transazioni;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  // Partecipanti
+  const listaPart = document.getElementById('lista-partecipanti');
+  listaPart.innerHTML = partecipanti.length === 0
+    ? '<div class="empty">Nessun partecipante ancora</div>'
+    : partecipanti.map(p => `
+      <div class="spesa-row">
+        <div class="spesa-info">
+          <span>${escapeHtml(p.nome)}</span>
+          <span class="spesa-meta">(${p.num_persone} ${p.num_persone === 1 ? 'persona' : 'persone'})</span>
+        </div>
+        <div class="row" style="gap:8px">
+          <button class="danger" onclick="modificaNumPersone('${p.id}', ${p.num_persone})">✎</button>
+          <button class="danger" onclick="rimuoviPartecipante('${p.id}')">Rimuovi</button>
+        </div>
+      </div>
+    `).join('');
+
+  // Select partecipanti per nuova spesa
+  const sel = document.getElementById('sel-partecipante');
+  sel.innerHTML = '<option value="">Seleziona partecipante...</option>' +
+    partecipanti.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+
+  // Spese
+  const listaSpese = document.getElementById('lista-spese');
+  if (spese.length === 0) {
+    listaSpese.innerHTML = '<div class="empty">Nessuna spesa ancora</div>';
+  } else {
+    listaSpese.innerHTML = spese.map(s => {
+      const p = partecipanti.find(x => x.id === s.partecipante_id);
+      const nomePagante = p ? p.nome : '(rimosso)';
+      const data = new Date(s.updated_at || s.created_at);
+      const oraStr = data.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="spesa-row">
+          <div class="spesa-info">
+            <div class="spesa-desc">${escapeHtml(s.descrizione)}</div>
+            <div class="spesa-meta">${escapeHtml(nomePagante)} · ultima modifica: ${escapeHtml(s.updated_by || '?')} (${oraStr})</div>
+          </div>
+          <div class="row" style="gap:8px">
+            ${s.foto_url ? `<img src="${s.foto_url}" onclick="apriFotoScontrino('${s.foto_url}')" style="width:36px;height:36px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)">` : ''}
+            <div class="spesa-importo">€${Number(s.importo).toFixed(2)}</div>
+            <button class="danger" onclick="modificaSpesa('${s.id}', ${s.importo}, '${escapeHtml(s.descrizione).replace(/'/g, "\\'")}')">✎</button>
+            <button class="danger" onclick="eliminaSpesa('${s.id}')">✕</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const { totale, quota, saldi } = calcolaSaldi();
+  document.getElementById('totale-spesa').textContent =
+    partecipanti.length > 0 ? `Totale: €${totale.toFixed(2)} · Quota a testa: €${quota.toFixed(2)}` : '';
+  // Nota: "a testa" = per singola persona conteggiata; un partecipante con num_persone=4
+  // dovrà una quota pari a 4 volte questo valore.
+
+  // Saldi
+  const listaSaldi = document.getElementById('lista-saldi');
+  listaSaldi.innerHTML = saldi.length === 0
+    ? '<div class="empty">Aggiungi partecipanti e spese per vedere i saldi</div>'
+    : saldi.map(s => {
+        const cls = s.saldo > 0.01 ? 'saldo-positivo' : (s.saldo < -0.01 ? 'saldo-negativo' : '');
+        const label = s.saldo > 0.01 ? `deve ricevere €${s.saldo.toFixed(2)}`
+                    : s.saldo < -0.01 ? `deve dare €${Math.abs(s.saldo).toFixed(2)}`
+                    : 'in pari';
+        return `
+          <div class="saldo-row">
+            <span>${escapeHtml(s.nome)} <span class="spesa-meta">(${s.numPersone}p · pagato €${s.pagato.toFixed(2)} · quota dovuta €${s.quotaDovuta.toFixed(2)})</span></span>
+            <span class="${cls}">${label}</span>
+          </div>
+        `;
+      }).join('');
+
+  // Transazioni
+  const transazioni = calcolaTransazioni(saldi);
+  const listaTrans = document.getElementById('lista-transazioni');
+  listaTrans.innerHTML = transazioni.length === 0
+    ? '<div class="empty">Nessuna transazione necessaria</div>'
+    : transazioni.map(t => `
+      <div class="transazione">
+        <strong>${escapeHtml(t.da)}</strong> deve dare <strong>€${t.importo.toFixed(2)}</strong> a <strong>${escapeHtml(t.a)}</strong>
+      </div>
+    `).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+init();
+</script>
+</body>
+</html>
