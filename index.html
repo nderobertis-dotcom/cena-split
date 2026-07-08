@@ -14,6 +14,18 @@
     --accent: #4f7cff;
     --green: #3ecf8e;
     --red: #ff5c5c;
+    --input-bg: #1e222b;
+  }
+  [data-theme="light"] {
+    --bg: #f7f7f8;
+    --card: #ffffff;
+    --border: #e2e2e6;
+    --text: #1a1c22;
+    --muted: #6b6f7a;
+    --accent: #4f7cff;
+    --green: #1f9d63;
+    --red: #d63b3b;
+    --input-bg: #f0f0f2;
   }
   * { box-sizing: border-box; }
   body {
@@ -40,7 +52,7 @@
     border-radius: 8px;
     border: 1px solid var(--border);
     padding: 10px 12px;
-    background: #1e222b;
+    background: var(--input-bg);
     color: var(--text);
   }
   input, select { width: 100%; margin-bottom: 8px; }
@@ -75,11 +87,11 @@
   .saldo-row:last-child { border-bottom: none; }
   .saldo-positivo { color: var(--green); }
   .saldo-negativo { color: var(--red); }
-  .transazione { padding: 10px; background: #1e222b; border-radius: 8px; margin-bottom: 8px; font-size: 0.95rem; }
+  .transazione { padding: 10px; background: var(--input-bg); border-radius: 8px; margin-bottom: 8px; font-size: 0.95rem; }
   .empty { color: var(--muted); text-align: center; padding: 20px 0; font-size: 0.9rem; }
   .share-box {
     display: flex; gap: 8px; align-items: center;
-    background: #1e222b; border-radius: 8px; padding: 8px;
+    background: var(--input-bg); border-radius: 8px; padding: 8px;
   }
   .share-box input { margin: 0; font-size: 0.8rem; background: transparent; border: none; }
   .share-box button { width: auto; padding: 8px 12px; font-size: 0.8rem; }
@@ -90,8 +102,10 @@
 </head>
 <body>
 <div class="container">
-  <h1>🍽️ Divisione Spesa Cena</h1>
-  <div class="subtitle">Configura Supabase per iniziare a usare l'app</div>
+  <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+    <h1 style="margin-bottom:0">🍽️ Divisione Spesa Cena</h1>
+    <button id="btn-toggle-tema" onclick="toggleTema()" style="width:auto; padding:8px 12px; background:var(--card); border:1px solid var(--border); color:var(--text);">🌙</button>
+  </div>
 
   <!-- SCHERMATA SETUP: da compilare una sola volta con le proprie credenziali Supabase -->
   <div id="setup-screen">
@@ -198,6 +212,24 @@ function saveConfig() {
   localStorage.setItem('sb_key', key);
   init();
 }
+
+function applicaTemaSalvato() {
+  const temaSalvato = localStorage.getItem('cena_tema') || 'dark';
+  document.documentElement.setAttribute('data-theme', temaSalvato);
+  const btn = document.getElementById('btn-toggle-tema');
+  if (btn) btn.textContent = temaSalvato === 'light' ? '☀️' : '🌙';
+}
+
+function toggleTema() {
+  const attuale = document.documentElement.getAttribute('data-theme') || 'dark';
+  const nuovo = attuale === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', nuovo);
+  localStorage.setItem('cena_tema', nuovo);
+  const btn = document.getElementById('btn-toggle-tema');
+  if (btn) btn.textContent = nuovo === 'light' ? '☀️' : '🌙';
+}
+
+applicaTemaSalvato();
 
 function init() {
   const { url, key } = getConfig();
