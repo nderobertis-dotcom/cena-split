@@ -321,13 +321,15 @@ async function modificaNumPersone(id, attuale) {
     const conferma = confirm(`Stai cambiando da ${attuale} a ${nuovo} persone. Questo ricalcola retroattivamente tutti i saldi già mostrati. Continuare?`);
     if (!conferma) return;
   }
-  await supabaseClient.from('partecipanti').update({ num_persone: nuovo }).eq('id', id);
+  const { error } = await supabaseClient.from('partecipanti').update({ num_persone: nuovo }).eq('id', id);
+  if (error) { alert('Errore nel salvataggio: ' + error.message); return; }
   await refreshData();
 }
 
 async function rimuoviPartecipante(id) {
   if (!confirm('Rimuovere questo partecipante? Le sue spese verranno eliminate.')) return;
-  await supabaseClient.from('partecipanti').delete().eq('id', id);
+  const { error } = await supabaseClient.from('partecipanti').delete().eq('id', id);
+  if (error) { alert('Errore nella rimozione: ' + error.message); return; }
   await refreshData();
 }
 
@@ -383,17 +385,19 @@ async function modificaSpesa(id, importoAttuale, descrizioneAttuale) {
   const nuovoImporto = parseFloat(nuovoImportoStr);
   if (isNaN(nuovoImporto) || nuovoImporto < 0) { alert('Importo non valido'); return; }
 
-  await supabaseClient.from('spese').update({
+  const { error } = await supabaseClient.from('spese').update({
     descrizione: nuovaDesc || '(senza descrizione)',
     importo: nuovoImporto,
     updated_by: chiSono
   }).eq('id', id);
+  if (error) { alert('Errore nel salvataggio: ' + error.message); return; }
   await refreshData();
 }
 
 async function eliminaSpesa(id) {
   if (!confirm('Eliminare questa spesa?')) return;
-  await supabaseClient.from('spese').delete().eq('id', id);
+  const { error } = await supabaseClient.from('spese').delete().eq('id', id);
+  if (error) { alert('Errore nella rimozione: ' + error.message); return; }
   await refreshData();
 }
 
