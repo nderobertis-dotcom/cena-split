@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Divisione Spesa Cena</title>
+<title>Lo Spigoletto — Divisione Spesa Cena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;1,500;1,600&family=Work+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0f1115;
@@ -11,10 +14,17 @@
     --border: #2a2e38;
     --text: #e8e9ed;
     --muted: #8b8f9a;
-    --accent: #4f7cff;
-    --green: #3ecf8e;
-    --red: #ff5c5c;
+    --accent: #b23a2e;
+    --accent-2: #c8952c;
+    --green: #7fae5c;
+    --red: #d16354;
     --input-bg: #1e222b;
+    --tovaglia: #8c2f22;
+    --carta: #f4ecdf;
+    --inchiostro: #2b2019;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'Space Mono', monospace;
   }
   [data-theme="light"] {
     --bg: #f7f7f8;
@@ -22,20 +32,101 @@
     --border: #e2e2e6;
     --text: #1a1c22;
     --muted: #6b6f7a;
-    --accent: #4f7cff;
-    --green: #1f9d63;
-    --red: #d63b3b;
+    --accent: #9a3324;
+    --accent-2: #b07d1f;
+    --green: #4f7a3d;
+    --red: #b23a2e;
     --input-bg: #f0f0f2;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-body);
     background: var(--bg);
     color: var(--text);
     padding: 16px;
   }
   .container { max-width: 640px; margin: 0 auto; }
+  .valore-num, .totale, .spesa-importo, .saldo-row span:last-child {
+    font-family: var(--font-mono);
+  }
+
+  /* ===== HERO "SCONTRINO" ===== */
+  .hero-scontrino {
+    position: relative;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 22px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 22px),
+      var(--tovaglia);
+    border-radius: 14px 14px 0 0;
+    padding: 28px 24px 34px;
+    margin-bottom: 0;
+    overflow: hidden;
+  }
+  .hero-ricevuta {
+    background: var(--carta);
+    color: var(--inchiostro);
+    border-radius: 3px;
+    padding: 22px 22px 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    position: relative;
+  }
+  .hero-ricevuta::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -9px;
+    height: 18px;
+    background:
+      linear-gradient(135deg, var(--carta) 50%, transparent 50%) 0 0 / 16px 18px repeat-x,
+      linear-gradient(-135deg, var(--carta) 50%, transparent 50%) 0 0 / 16px 18px repeat-x;
+      background-position: 0 0, 8px 0;
+  }
+  .hero-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .hero-titolo {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.1rem;
+    line-height: 1.05;
+    margin: 0 0 6px 0;
+  }
+  .hero-tagline {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    opacity: 0.75;
+    border-top: 1px dashed rgba(43,32,25,0.3);
+    padding-top: 10px;
+    margin-top: 12px;
+  }
+  .hero-macchia {
+    position: absolute;
+    top: -14px;
+    right: 18px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(43,32,25,0.12);
+    opacity: 0.8;
+  }
+  .hero-toggle {
+    width: auto !important;
+    padding: 6px 10px !important;
+    background: rgba(43,32,25,0.08) !important;
+    border: 1px solid rgba(43,32,25,0.2) !important;
+    color: var(--inchiostro) !important;
+    font-size: 0.85rem;
+    border-radius: 6px !important;
+  }
   h1 { font-size: 1.3rem; margin-bottom: 4px; }
   .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
   .card {
@@ -89,12 +180,6 @@
   .saldo-negativo { color: var(--red); }
   .transazione { padding: 10px; background: var(--input-bg); border-radius: 8px; margin-bottom: 8px; font-size: 0.95rem; }
   .empty { color: var(--muted); text-align: center; padding: 20px 0; font-size: 0.9rem; }
-  .share-box {
-    display: flex; gap: 8px; align-items: center;
-    background: var(--input-bg); border-radius: 8px; padding: 8px;
-  }
-  .share-box input { margin: 0; font-size: 0.8rem; background: transparent; border: none; }
-  .share-box button { width: auto; padding: 8px 12px; font-size: 0.8rem; }
   #setup-screen { display: none; }
   #app-screen { display: none; }
   .loading { text-align: center; padding: 40px 0; color: var(--muted); }
@@ -102,13 +187,20 @@
 </head>
 <body>
 <div class="container">
-  <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
-    <h1 style="margin-bottom:0">🍽️ Divisione Spesa Cena</h1>
-    <button id="btn-toggle-tema" onclick="toggleTema()" style="width:auto; padding:8px 12px; background:var(--card); border:1px solid var(--border); color:var(--text);">🌙</button>
+  <div class="hero-scontrino">
+    <div class="hero-macchia"></div>
+    <div class="hero-ricevuta">
+      <div class="hero-eyebrow">
+        <span>Lo Spigoletto</span>
+        <button id="btn-toggle-tema" onclick="toggleTema()" class="hero-toggle">🌙</button>
+      </div>
+      <h1 class="hero-titolo">Chi ha preso cosa,<br>chi deve dare cosa.</h1>
+      <div class="hero-tagline">DIVISIONE SPESA · N PERSONE · CONTO ALLA PARI</div>
+    </div>
   </div>
 
   <!-- SCHERMATA SETUP: da compilare una sola volta con le proprie credenziali Supabase -->
-  <div id="setup-screen">
+  <div id="setup-screen" style="margin-top: 28px;">
     <div class="card">
       <h2>Configurazione Supabase</h2>
       <input id="cfg-url" placeholder="Supabase Project URL">
@@ -117,7 +209,7 @@
     </div>
   </div>
 
-  <div id="app-screen">
+  <div id="app-screen" style="margin-top: 28px;">
     <div id="loading" class="loading">Caricamento...</div>
 
     <div id="no-cena" style="display:none;">
@@ -129,14 +221,6 @@
     </div>
 
     <div id="cena-content" style="display:none;">
-      <div class="card">
-        <h2>Condividi</h2>
-        <div class="share-box">
-          <input id="share-link" readonly>
-          <button onclick="copyLink()">Copia link</button>
-        </div>
-      </div>
-
       <div class="card">
         <h2>Partecipanti</h2>
         <div class="row">
@@ -267,10 +351,6 @@ async function creaCena() {
 async function loadCena(cenaId) {
   document.getElementById('loading').style.display = 'block';
   document.getElementById('cena-content').style.display = 'none';
-
-  const shareUrl = new URL(window.location.href);
-  shareUrl.searchParams.set('cena', cenaId);
-  document.getElementById('share-link').value = shareUrl.toString();
 
   await refreshData();
   setupRealtime(cenaId);
@@ -468,12 +548,6 @@ async function caricaScontrino(file, cenaId) {
 
 function apriFotoScontrino(url) {
   window.open(url, '_blank');
-}
-
-function copyLink() {
-  const input = document.getElementById('share-link');
-  input.select();
-  navigator.clipboard.writeText(input.value).then(() => alert('Link copiato!'));
 }
 
 // ============================================================
