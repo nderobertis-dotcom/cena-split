@@ -1,0 +1,24 @@
+{
+  "name": "Lo Spigoletto",
+  "short_name": "Spigoletto",
+  "description": "Dividi la spesa della cena in parti eque, senza conti a mente.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#8c2f22",
+  "theme_color": "#8c2f22",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
