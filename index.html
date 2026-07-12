@@ -162,7 +162,7 @@
     width: 100%;
   }
   button:active { opacity: 0.8; }
-  button.secondary { background: #2a2e38; }
+  button.secondary { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); }
   button.danger { background: transparent; color: var(--red); border: 1px solid var(--red); width: auto; padding: 6px 10px; font-size: 0.8rem; }
   .row { display: flex; gap: 8px; align-items: center; }
   .row > * { margin-bottom: 0; }
@@ -231,6 +231,7 @@
     </div>
 
     <div id="cena-content" style="display:none;">
+      <button onclick="tornaACene()" class="secondary" style="width:auto; margin-bottom:12px; padding:8px 14px; font-size:0.85rem;">← Tutte le cene</button>
       <div id="banner-chiusa" class="card" style="display:none; background: var(--tovaglia); color: var(--carta); text-align:center; font-weight:600;">
         🔒 Questa cena è chiusa — sola lettura, nessuna modifica possibile
       </div>
@@ -386,6 +387,12 @@ async function caricaCeneAttive() {
       </div>
     `;
   }).join('');
+}
+
+function tornaACene() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('cena');
+  window.location.href = url.toString();
 }
 
 async function creaCena() {
