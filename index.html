@@ -186,6 +186,7 @@
   .saldo-negativo { color: var(--red); }
   .transazione { padding: 10px; background: var(--input-bg); border-radius: 8px; margin-bottom: 8px; font-size: 0.95rem; }
   .empty { color: var(--muted); text-align: center; padding: 20px 0; font-size: 0.9rem; }
+  body.readonly-mode .solo-scrittura { display: none !important; }
   #setup-screen { display: none; }
   #app-screen { display: none; }
   .loading { text-align: center; padding: 40px 0; color: var(--muted); }
@@ -223,21 +224,28 @@
         <input id="nome-cena" placeholder="Nome della cena (es. Cena di Marco)">
         <button onclick="creaCena()">Crea Cena</button>
       </div>
+      <div class="card">
+        <h2>Cene Attive</h2>
+        <div id="lista-cene-attive"><div class="empty">Caricamento...</div></div>
+      </div>
     </div>
 
     <div id="cena-content" style="display:none;">
+      <div id="banner-chiusa" class="card" style="display:none; background: var(--tovaglia); color: var(--carta); text-align:center; font-weight:600;">
+        🔒 Questa cena è chiusa — sola lettura, nessuna modifica possibile
+      </div>
       <div class="card">
         <h2>Partecipanti</h2>
-        <div class="row">
+        <div class="row solo-scrittura">
           <input id="nuovo-partecipante" placeholder="Nome (es. Famiglia Rossi)" style="flex:1">
           <input id="nuovo-num-persone" type="number" min="1" value="1" style="width:70px" title="Numero di persone">
           <button style="width:auto" onclick="aggiungiPartecipante()">+ Aggiungi</button>
         </div>
-        <div class="spesa-meta" style="margin-bottom:8px">Il numero indica quante persone conta ai fini della quota (1 = singolo, 4 = famiglia di 4)</div>
+        <div class="spesa-meta solo-scrittura" style="margin-bottom:8px">Il numero indica quante persone conta ai fini della quota (1 = singolo, 4 = famiglia di 4)</div>
         <div id="lista-partecipanti"></div>
       </div>
 
-      <div class="card">
+      <div class="card solo-scrittura">
         <h2>Aggiungi Spesa</h2>
         <select id="sel-partecipante"></select>
         <input id="sel-descrizione" placeholder="Descrizione (es. Vino, Antipasti)">
@@ -267,6 +275,12 @@
         <h2>Chi Deve Dare a Chi</h2>
         <div id="lista-transazioni"><div class="empty">Nessuna transazione necessaria</div></div>
       </div>
+
+      <div class="card solo-scrittura" id="card-chiudi-cena">
+        <h2>Chiudi Cena</h2>
+        <div class="spesa-meta" style="margin-bottom:10px;">Una volta chiusa, nessuno potrà più aggiungere o modificare partecipanti e spese. L'azione può essere fatta da chiunque abbia il link.</div>
+        <button onclick="chiudiCena()" style="background: var(--red);">🔒 Chiudi questa cena</button>
+      </div>
     </div>
   </div>
 </div>
@@ -283,6 +297,7 @@ const HARDCODED_KEY = "sb_publishable_y2BwF8yqUycxxB2B4GsyuA_pTPpwwYs";
 
 let supabaseClient = null;
 let currentCenaId = null;
+let cenaChiusa = false;
 let partecipanti = [];
 let spese = [];
 let realtimeChannel = null;
@@ -340,7 +355,37 @@ function init() {
   } else {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('no-cena').style.display = 'block';
+    caricaCeneAttive();
   }
+}
+
+async function caricaCeneAttive() {
+  const cont = document.getElementById('lista-cene-attive');
+  const { data, error } = await supabaseClient
+    .from('cene')
+    .select('*')
+    .eq('chiusa', false)
+    .order('created_at', { ascending: false });
+
+  if (error) { cont.innerHTML = '<div class="empty">Errore nel caricamento</div>'; return; }
+  if (!data || data.length === 0) {
+    cont.innerHTML = '<div class="empty">Nessuna cena attiva al momento</div>';
+    return;
+  }
+  cont.innerHTML = data.map(c => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('cena', c.id);
+    const dataStr = new Date(c.data || c.created_at).toLocaleDateString('it-IT');
+    return `
+      <div class="spesa-row" style="cursor:pointer" onclick="window.location.href='${url.toString()}'">
+        <div class="spesa-info">
+          <div class="spesa-desc">${escapeHtml(c.nome)}</div>
+          <div class="spesa-meta">${dataStr}</div>
+        </div>
+        <div class="spesa-importo">→</div>
+      </div>
+    `;
+  }).join('');
 }
 
 async function creaCena() {
@@ -365,6 +410,9 @@ async function loadCena(cenaId) {
 }
 
 async function refreshData() {
+  const { data: c } = await supabaseClient.from('cene').select('chiusa').eq('id', currentCenaId).single();
+  cenaChiusa = c ? c.chiusa : false;
+
   const { data: p } = await supabaseClient.from('partecipanti').select('*').eq('cena_id', currentCenaId).order('created_at');
   partecipanti = p || [];
 
@@ -374,10 +422,18 @@ async function refreshData() {
   render();
 }
 
+async function chiudiCena() {
+  if (!confirm('Chiudere questa cena? Nessuno potrà più aggiungere o modificare partecipanti e spese, e non comparirà più nella lista cene attive. Questa azione non è reversibile dall\'interfaccia.')) return;
+  const { error } = await supabaseClient.from('cene').update({ chiusa: true }).eq('id', currentCenaId);
+  if (error) { alert('Errore nella chiusura: ' + error.message); return; }
+  await refreshData();
+}
+
 function setupRealtime(cenaId) {
   if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
   realtimeChannel = supabaseClient
     .channel('cena-' + cenaId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cene', filter: 'id=eq.' + cenaId }, refreshData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'partecipanti', filter: 'cena_id=eq.' + cenaId }, refreshData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'spese', filter: 'cena_id=eq.' + cenaId }, refreshData)
     .subscribe();
@@ -599,6 +655,10 @@ function calcolaTransazioni(saldi) {
 // RENDER
 // ============================================================
 function render() {
+  document.body.classList.toggle('readonly-mode', cenaChiusa);
+  const banner = document.getElementById('banner-chiusa');
+  if (banner) banner.style.display = cenaChiusa ? 'block' : 'none';
+
   // Partecipanti
   const listaPart = document.getElementById('lista-partecipanti');
   listaPart.innerHTML = partecipanti.length === 0
@@ -610,8 +670,8 @@ function render() {
           <span class="spesa-meta">(${p.num_persone} ${p.num_persone === 1 ? 'persona' : 'persone'})</span>
         </div>
         <div class="row" style="gap:8px">
-          <button class="danger" onclick="modificaNumPersone('${p.id}', ${p.num_persone})">✎</button>
-          <button class="danger" onclick="rimuoviPartecipante('${p.id}')">Rimuovi</button>
+          <button class="danger solo-scrittura" onclick="modificaNumPersone('${p.id}', ${p.num_persone})">✎</button>
+          <button class="danger solo-scrittura" onclick="rimuoviPartecipante('${p.id}')">Rimuovi</button>
         </div>
       </div>
     `).join('');
@@ -640,8 +700,8 @@ function render() {
           <div class="row" style="gap:8px">
             ${s.foto_url ? `<img src="${s.foto_url}" onclick="apriFotoScontrino('${s.foto_url}')" style="width:36px;height:36px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)">` : ''}
             <div class="spesa-importo">€${Number(s.importo).toFixed(2)}</div>
-            <button class="danger" onclick="modificaSpesa('${s.id}', ${s.importo}, '${escapeHtml(s.descrizione).replace(/'/g, "\\'")}')">✎</button>
-            <button class="danger" onclick="eliminaSpesa('${s.id}')">✕</button>
+            <button class="danger solo-scrittura" onclick="modificaSpesa('${s.id}', ${s.importo}, '${escapeHtml(s.descrizione).replace(/'/g, "\\'")}')">✎</button>
+            <button class="danger solo-scrittura" onclick="eliminaSpesa('${s.id}')">✕</button>
           </div>
         </div>
       `;
