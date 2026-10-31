@@ -360,6 +360,18 @@ function init() {
   }
 }
 
+function erroreRete(error) {
+  const m = String((error && error.message) || error || '');
+  return /failed to fetch|networkerror|load failed|network request failed|fetch/i.test(m);
+}
+
+const MSG_NON_RAGGIUNGIBILE = 'Servizio momentaneamente non raggiungibile. Riprova tra qualche minuto; se il problema persiste, avvisa chi gestisce il sito.';
+
+function msgErrore(prefisso, error) {
+  if (erroreRete(error)) return MSG_NON_RAGGIUNGIBILE;
+  return prefisso + ': ' + ((error && error.message) || 'errore sconosciuto');
+}
+
 async function caricaCeneAttive() {
   const cont = document.getElementById('lista-cene-attive');
   const { data, error } = await supabaseClient
@@ -368,7 +380,11 @@ async function caricaCeneAttive() {
     .eq('chiusa', false)
     .order('created_at', { ascending: false });
 
-  if (error) { cont.innerHTML = '<div class="empty">Errore nel caricamento</div>'; return; }
+  if (error) {
+    const testo = erroreRete(error) ? MSG_NON_RAGGIUNGIBILE : 'Errore nel caricamento delle cene';
+    cont.innerHTML = '<div class="empty">' + testo + '<br><br><button onclick="caricaCeneAttive()" style="width:auto">Riprova</button></div>';
+    return;
+  }
   if (!data || data.length === 0) {
     cont.innerHTML = '<div class="empty">Nessuna cena attiva al momento</div>';
     return;
@@ -399,7 +415,7 @@ async function creaCena() {
   const nome = document.getElementById('nome-cena').value.trim();
   if (!nome) { alert('Inserisci un nome per la cena'); return; }
   const { data, error } = await supabaseClient.from('cene').insert({ nome }).select().single();
-  if (error) { alert('Errore: ' + error.message); return; }
+  if (error) { alert(msgErrore('Errore', error)); return; }
   const url = new URL(window.location.href);
   url.searchParams.set('cena', data.id);
   window.location.href = url.toString();
@@ -432,7 +448,7 @@ async function refreshData() {
 async function chiudiCena() {
   if (!confirm('Chiudere questa cena? Nessuno potrà più aggiungere o modificare partecipanti e spese, e non comparirà più nella lista cene attive. Questa azione non è reversibile dall\'interfaccia.')) return;
   const { error } = await supabaseClient.from('cene').update({ chiusa: true }).eq('id', currentCenaId);
-  if (error) { alert('Errore nella chiusura: ' + error.message); return; }
+  if (error) { alert(msgErrore('Errore nella chiusura', error)); return; }
   await refreshData();
 }
 
@@ -454,7 +470,7 @@ async function aggiungiPartecipante() {
   if (!nome) return;
   if (numPersone < 1) { alert('Il numero di persone deve essere almeno 1'); return; }
   const { error } = await supabaseClient.from('partecipanti').insert({ cena_id: currentCenaId, nome, num_persone: numPersone });
-  if (error) { alert('Errore: forse questo nome esiste già'); return; }
+  if (error) { alert(erroreRete(error) ? MSG_NON_RAGGIUNGIBILE : 'Errore: forse questo nome esiste già'); return; }
   input.value = '';
   inputNumPersone.value = '1';
   await refreshData();
@@ -470,14 +486,14 @@ async function modificaNumPersone(id, attuale) {
     if (!conferma) return;
   }
   const { error } = await supabaseClient.from('partecipanti').update({ num_persone: nuovo }).eq('id', id);
-  if (error) { alert('Errore nel salvataggio: ' + error.message); return; }
+  if (error) { alert(msgErrore('Errore nel salvataggio', error)); return; }
   await refreshData();
 }
 
 async function rimuoviPartecipante(id) {
   if (!confirm('Rimuovere questo partecipante? Le sue spese verranno eliminate.')) return;
   const { error } = await supabaseClient.from('partecipanti').delete().eq('id', id);
-  if (error) { alert('Errore nella rimozione: ' + error.message); return; }
+  if (error) { alert(msgErrore('Errore nella rimozione', error)); return; }
   await refreshData();
 }
 
@@ -515,7 +531,7 @@ async function aggiungiSpesa() {
     updated_by: chiSono
   });
   if (btn) btn.textContent = testoOriginale;
-  if (error) { alert('Errore: ' + error.message); return; }
+  if (error) { alert(msgErrore('Errore', error)); return; }
 
   document.getElementById('sel-descrizione').value = '';
   document.getElementById('sel-importo').value = '';
@@ -538,14 +554,14 @@ async function modificaSpesa(id, importoAttuale, descrizioneAttuale) {
     importo: nuovoImporto,
     updated_by: chiSono
   }).eq('id', id);
-  if (error) { alert('Errore nel salvataggio: ' + error.message); return; }
+  if (error) { alert(msgErrore('Errore nel salvataggio', error)); return; }
   await refreshData();
 }
 
 async function eliminaSpesa(id) {
   if (!confirm('Eliminare questa spesa?')) return;
   const { error } = await supabaseClient.from('spese').delete().eq('id', id);
-  if (error) { alert('Errore nella rimozione: ' + error.message); return; }
+  if (error) { alert(msgErrore('Errore nella rimozione', error)); return; }
   await refreshData();
 }
 
